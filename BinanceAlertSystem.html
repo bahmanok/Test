@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binance Alert System</title>
+</head>
+<body>
+  <h1>Binance WebSocket Alert</h1>
+  <p>Monitoring BTC/USDT trades...</p>
+  <div id="log"></div>
+
+  <script>
+    // WebSocket connection to Binance
+    const socket = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+    const logDiv = document.getElementById("log");
+
+    // Threshold settings
+    const minVolume = 1; // Minimum volume (10 BTC)
+    const priceRange = { min: 90600, max: 91300 }; // Price range to monitor
+
+    // Function to send an alert (example using Telegram API)
+    const sendAlert = async (message) => {
+      const telegramBotToken = '7223604071:AAGRnuSXKApUCxOi4siC4HZVDQReEaiHb_Q';
+      const chatId = '@usdt_abc';
+      const url = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: message })
+      });
+    };
+
+    // On WebSocket message
+    socket.onmessage = async (event) => {
+      const trade = JSON.parse(event.data); // Parse trade data
+      const { p: price, q: volume, m: isSell } = trade; // Price, Volume, and Market Maker flag
+
+      const priceFloat = parseFloat(price);
+      const volumeFloat = parseFloat(volume);
+
+      if (volumeFloat >= minVolume && priceFloat >= priceRange.min && priceFloat <= priceRange.max) {
+        const type = isSell ? '🔴 فروش' : '🟢 خرید';
+        const alertMessage = `${type} ${volumeFloat} BTC به قیمت ${priceFloat}`;
+        logDiv.innerHTML += `<p>${alertMessage}</p>`;
+
+        // Send alert to Telegram
+        await sendAlert(alertMessage);
+      }
+    };
+
+    // Handle WebSocket errors
+    socket.onerror = (error) => {
+      console.error("WebSocket Error:", error);
+    };
+
+    // Handle WebSocket close
+    socket.onclose = () => {
+      console.log("WebSocket connection closed.");
+    };
+  </script>
+</body>
+</html>
